@@ -20,15 +20,12 @@ async function bookWash(formData: FormData) {
 
   const scheduledTime = new Date(pickedDateTime);
   const now = new Date();
-
-  // Safety buffer: Must be at least 2 hours in the future
   const minimumTime = new Date(now.getTime() + 2 * 60 * 60 * 1000);
 
   if (scheduledTime < minimumTime) {
     redirect('/dashboard/book?error=too_soon');
   }
 
-  // Find if user already has a request at the SAME EXACT MINUTE for this vehicle
   const docAtSameTime = await ServiceRequest.findOne({
     vehicleId,
     scheduledTime: scheduledTime,
@@ -39,7 +36,6 @@ async function bookWash(formData: FormData) {
     redirect('/dashboard/book?error=time_taken');
   }
 
-  // Create the service request
   await ServiceRequest.create({
     userId: session.user.id,
     vehicleId,
@@ -64,7 +60,6 @@ export default async function BookWashPage({ searchParams }: { searchParams: Pro
     redirect('/dashboard/vehicles');
   }
 
-  // Check if user has completed their profile address
   const userDoc = await User.findById(session.user.id).lean();
   const address = userDoc?.address;
   const isAddressComplete = address?.city && address?.community && address?.block && address?.flatNumber;
@@ -72,92 +67,89 @@ export default async function BookWashPage({ searchParams }: { searchParams: Pro
     redirect('/dashboard/complete-profile?redirectTo=/dashboard/book');
   }
 
-  // Calculate default min time (+2 hours)
   const now = new Date();
   const minTime = new Date(now.getTime() + 2 * 60 * 60 * 1000);
   const minTimeStr = minTime.toISOString().slice(0, 16);
 
   return (
     <div className="max-w-3xl mx-auto pb-24 space-y-8">
-      <h1 className="text-4xl font-extrabold text-[var(--foreground)] tracking-tight text-center md:text-left">
+      <h1 className="text-2xl font-bold text-slate-800 text-center md:text-left">
         Schedule a Wash
       </h1>
 
       {resolvedParams.error === 'too_soon' && (
-        <div className="bg-red-100 border-2 border-red-400 text-red-700 p-6 rounded-2xl flex items-center gap-4">
-          <Info className="w-8 h-8 shrink-0" />
-          <p className="text-xl font-bold">Please pick a time at least 2 hours from now.</p>
+        <div className="bg-red-100 border border-red-400 text-red-700 p-4 rounded-xl flex items-center gap-3">
+          <Info className="w-5 h-5 shrink-0" />
+          <p className="font-medium text-sm">Please pick a time at least 2 hours from now.</p>
         </div>
       )}
 
       {resolvedParams.error === 'time_taken' && (
-        <div className="bg-red-100 border-2 border-red-400 text-red-700 p-6 rounded-2xl flex items-center gap-4">
-          <Info className="w-8 h-8 shrink-0" />
-          <p className="text-xl font-bold">You already have a wash scheduled for this exact time.</p>
+        <div className="bg-red-100 border border-red-400 text-red-700 p-4 rounded-xl flex items-center gap-3">
+          <Info className="w-5 h-5 shrink-0" />
+          <p className="font-medium text-sm">You already have a wash scheduled for this exact time.</p>
         </div>
       )}
 
-      <div className="bg-blue-50 p-6 rounded-2xl flex items-start gap-4 border border-blue-200 shadow-sm">
-        <Info className="w-8 h-8 text-blue-600 shrink-0" />
-        <p className="text-xl text-blue-900 font-medium">
+      <div className="bg-blue-50 p-4 rounded-xl flex items-start gap-3 border border-blue-200">
+        <Info className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+        <p className="text-sm text-blue-900">
           Note: Pick any date and time! We just need at least <strong>2 hours</strong> notice to prepare.
         </p>
       </div>
 
-      <form action={bookWash} className="bg-white p-8 md:p-12 rounded-3xl shadow-xl border-t-8 border-[var(--primary)] space-y-12">
-        
+      <form action={bookWash} className="bg-white p-6 md:p-8 rounded-xl shadow-sm border border-slate-200 space-y-8">
+
         {/* Step 1: Vehicle Selection */}
         <div>
-          <h2 className="text-3xl font-bold text-[var(--foreground)] mb-6">1. Which car needs a wash?</h2>
-          <div className="flex flex-col gap-4">
+          <h2 className="text-lg font-bold text-slate-800 mb-4">1. Which car needs a wash?</h2>
+          <div className="flex flex-col gap-3">
             {vehicles.map((v: any, index: number) => (
-              <label 
-                key={v._id.toString()} 
-                className="flex items-center gap-6 p-6 border-4 border-[var(--border)] rounded-2xl cursor-pointer hover:border-[var(--primary)] has-[:checked]:border-[var(--primary)] has-[:checked]:bg-[var(--secondary)] transition-all"
+              <label
+                key={v._id.toString()}
+                className="flex items-center gap-4 p-4 border border-slate-300 rounded-lg cursor-pointer hover:border-blue-500 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50 transition-all"
               >
-                <input 
-                  type="radio" 
-                  name="vehicleId" 
-                  value={v._id.toString()} 
+                <input
+                  type="radio"
+                  name="vehicleId"
+                  value={v._id.toString()}
                   defaultChecked={index === 0}
                   required
-                  className="w-8 h-8 text-[var(--primary)]"
+                  className="w-4 h-4 text-blue-600"
                 />
                 <div>
-                  <h3 className="text-2xl font-extrabold">{v.vehicleModel}</h3>
-                  <p className="text-xl text-[var(--muted-foreground)] uppercase">{v.vehicleNumber}</p>
+                  <h3 className="text-base font-bold text-slate-800">{v.vehicleModel}</h3>
+                  <p className="text-sm text-slate-500 uppercase">{v.vehicleNumber}</p>
                 </div>
               </label>
             ))}
           </div>
         </div>
 
-        <hr className="border-[var(--border)] border-2" />
+        <hr className="border-slate-200" />
 
         {/* Step 2: Time Selection */}
         <div>
-          <h2 className="text-3xl font-bold text-[var(--foreground)] mb-6">2. When should we come?</h2>
-          <div className="space-y-4">
-            <label className="block text-xl font-bold text-[var(--foreground)]">Select Date & Time</label>
-            <input 
-              type="datetime-local" 
+          <h2 className="text-lg font-bold text-slate-800 mb-4">2. When should we come?</h2>
+          <div className="space-y-3">
+            <label className="block text-sm font-semibold text-slate-700">Select Date & Time</label>
+            <input
+              type="datetime-local"
               name="scheduledTime"
               min={minTimeStr}
               defaultValue={minTimeStr}
               required
-              className="w-full p-6 text-3xl font-bold border-4 border-[var(--border)] rounded-2xl focus:border-[var(--primary)] focus:outline-none transition-all shadow-inner"
+              className="w-full p-4 border border-slate-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none text-base"
             />
-            <p className="text-lg text-[var(--muted-foreground)]">Tap above to open the calendar.</p>
+            <p className="text-sm text-slate-500">Tap above to open the calendar</p>
           </div>
         </div>
 
-        <hr className="border-[var(--border)] border-2" />
-
-        <button 
+        <button
           type="submit"
-          className="w-full py-8 text-3xl font-extrabold bg-[var(--foreground)] text-white hover:bg-slate-800 rounded-2xl shadow-xl flex items-center justify-center gap-4 transition-transform hover:-translate-y-1"
+          className="w-full py-4 text-lg font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow hover:shadow-md transition-all flex items-center justify-center gap-3"
         >
-          <CheckCircle2 className="w-10 h-10" /> Confirm Booking
+          <CheckCircle2 className="w-5 h-5" /> Confirm Booking
         </button>
 
       </form>

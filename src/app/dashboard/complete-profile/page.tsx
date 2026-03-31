@@ -20,7 +20,6 @@ export default function CompleteProfilePage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Fetch current address to pre-fill
     async function fetchAddress() {
       const data = await getUserAddress();
       if (data) {
@@ -48,36 +47,33 @@ export default function CompleteProfilePage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-8">
-      <div className="bg-white p-8 md:p-12 rounded-3xl shadow-xl border-t-8 border-[var(--primary)]">
-        <div className="flex items-center gap-4 mb-8">
-          <MapPin className="w-12 h-12 text-[var(--primary)]" />
+      <div className="bg-white p-6 md:p-8 rounded-xl shadow-sm border border-slate-200">
+        <div className="flex items-center gap-3 mb-6">
+          <MapPin className="w-6 h-6 text-blue-600" />
           <div>
-            <h1 className="text-4xl font-extrabold text-[var(--foreground)]">
+            <h1 className="text-xl font-bold text-slate-800">
               Complete Your Profile
             </h1>
-            <p className="text-xl text-[var(--muted-foreground)]">
+            <p className="text-sm text-slate-500">
               Provide your address details to enable booking.
             </p>
           </div>
         </div>
 
         {error && (
-          <div className="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-xl flex items-center gap-3">
-            <span className="font-bold">Error:</span> {error}
+          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2 text-sm">
+            <span className="font-semibold">Error:</span> {error}
           </div>
         )}
 
-        <p className="text-lg text-[var(--muted-foreground)] mb-6">
+        <p className="text-sm text-slate-600 mb-6">
           Please fill in the following fields. All are required to book a wash.
         </p>
 
-        <form onSubmit={handleSubmit} className="space-y-8">
+        <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-4">
             <div>
-              <label
-                htmlFor="city"
-                className="block text-2xl font-bold text-[var(--foreground)] mb-2"
-              >
+              <label htmlFor="city" className="block text-sm font-semibold text-slate-700 mb-2">
                 City
               </label>
               <input
@@ -87,15 +83,12 @@ export default function CompleteProfilePage() {
                 required
                 defaultValue={initialValues.city}
                 placeholder="e.g. Abu Dhabi"
-                className="w-full p-5 text-2xl border-4 border-[var(--border)] rounded-2xl focus:border-[var(--primary)] focus:ring focus:ring-[var(--primary)] outline-none"
+                className="w-full p-3 border border-slate-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none text-base"
               />
             </div>
 
             <div>
-              <label
-                htmlFor="community"
-                className="block text-2xl font-bold text-[var(--foreground)] mb-2"
-              >
+              <label htmlFor="community" className="block text-sm font-semibold text-slate-700 mb-2">
                 Community
               </label>
               <input
@@ -105,15 +98,12 @@ export default function CompleteProfilePage() {
                 required
                 defaultValue={initialValues.community}
                 placeholder="e.g. Al Reem Island"
-                className="w-full p-5 text-2xl border-4 border-[var(--border)] rounded-2xl focus:border-[var(--primary)] focus:ring focus:ring-[var(--primary)] outline-none"
+                className="w-full p-3 border border-slate-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none text-base"
               />
             </div>
 
             <div>
-              <label
-                htmlFor="block"
-                className="block text-2xl font-bold text-[var(--foreground)] mb-2"
-              >
+              <label htmlFor="block" className="block text-sm font-semibold text-slate-700 mb-2">
                 Block
               </label>
               <input
@@ -123,16 +113,13 @@ export default function CompleteProfilePage() {
                 required
                 defaultValue={initialValues.block}
                 placeholder="e.g. B"
-                className="w-full p-5 text-2xl border-4 border-[var(--border)] rounded-2xl focus:border-[var(--primary)] focus:ring focus:ring-[var(--primary)] outline-none"
+                className="w-full p-3 border border-slate-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none text-base"
               />
             </div>
 
             <div>
-              <label
-                htmlFor="flatNumber"
-                className="block text-2xl font-bold text-[var(--foreground)] mb-2"
-              >
-                Flat Number / Villa Number
+              <label htmlFor="flatNumber" className="block text-sm font-semibold text-slate-700 mb-2">
+                Flat/Villa Number
               </label>
               <input
                 id="flatNumber"
@@ -141,7 +128,7 @@ export default function CompleteProfilePage() {
                 required
                 defaultValue={initialValues.flatNumber}
                 placeholder="e.g. 1201"
-                className="w-full p-5 text-2xl border-4 border-[var(--border)] rounded-2xl focus:border-[var(--primary)] focus:ring focus:ring-[var(--primary)] outline-none"
+                className="w-full p-3 border border-slate-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none text-base"
               />
             </div>
           </div>
@@ -149,10 +136,10 @@ export default function CompleteProfilePage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-[var(--primary)] hover:bg-[var(--secondary-foreground)] text-white text-2xl font-bold py-6 rounded-2xl shadow-xl transition-all flex items-center justify-center gap-3 disabled:opacity-70"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg shadow transition-all flex items-center justify-center gap-2 disabled:opacity-70"
           >
             {loading ? (
-              <Loader2 className="w-8 h-8 animate-spin" />
+              <Loader2 className="w-5 h-5 animate-spin" />
             ) : (
               "Save & Continue"
             )}
