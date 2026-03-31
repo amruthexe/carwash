@@ -1,9 +1,8 @@
 import { auth } from "@/auth";
 import { connectToDatabase } from "@/lib/db";
 import { ServiceRequest, WorkerAssignment } from "@/models/Service";
-import Vehicle from "@/models/Vehicle";
 import { revalidatePath } from "next/cache";
-import { MapPin, Clock, CheckCircle } from "lucide-react";
+import { MapPin, CheckCircle, Home, Building } from "lucide-react";
 
 async function updateTaskStatus(formData: FormData) {
   "use server";
@@ -47,7 +46,11 @@ export default async function WorkerDashboard() {
   })
   .populate({
     path: 'requestId',
-    populate: { path: 'vehicleId', model: 'Vehicle' }
+    populate: [{
+      path: 'vehicleId',
+      model: 'Vehicle',
+      populate: { path: 'userId', model: 'User' }
+    }]
   })
   .lean();
 
@@ -58,12 +61,14 @@ export default async function WorkerDashboard() {
       {assignments.length > 0 ? (
         <div className="grid gap-8">
           {assignments.map((assignment: any) => {
-            const req = assignment.requestId;
+            const req = assignment.requestId as any;
             const vehicle = req?.vehicleId;
+            const customer = vehicle?.userId;
+            const address = customer?.address;
 
             return (
               <div key={assignment._id.toString()} className="bg-white p-8 md:p-10 rounded-3xl shadow-xl border-t-8 border-[var(--primary)] text-center flex flex-col gap-6">
-                 
+
                  <div className="flex flex-col items-center gap-2">
                    <p className="text-2xl font-bold bg-blue-100 text-blue-800 px-6 py-2 rounded-full mb-4 inline-block shadow-sm">
                      {new Date(req.scheduledTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
@@ -73,6 +78,30 @@ export default async function WorkerDashboard() {
                      {vehicle?.vehicleNumber || "NO PLATE"}
                    </p>
                  </div>
+
+                 {/* Customer Address Section */}
+                 {address && (
+                   <div className="bg-blue-50 p-6 rounded-2xl border-2 border-blue-100 text-left">
+                     <h4 className="text-lg font-bold text-blue-900 mb-3 flex items-center gap-2">
+                       <MapPin className="w-5 h-5" />
+                       Customer Address
+                     </h4>
+                     <div className="space-y-2 text-slate-700">
+                       <p className="flex items-center gap-2">
+                         <Home className="w-4 h-4 text-blue-600" />
+                         <span>{address.city}</span>
+                       </p>
+                       <p className="flex items-center gap-2 ml-6">
+                         <Building className="w-4 h-4 text-green-600" />
+                         <span>{address.community}, Block {address.block}</span>
+                       </p>
+                       <p className="flex items-center gap-2 ml-6">
+                         <MapPin className="w-4 h-4 text-red-600" />
+                         <span>Flat/Villa: {address.flatNumber}</span>
+                       </p>
+                     </div>
+                   </div>
+                 )}
 
                  <hr className="my-4 border-[var(--border)] border-2 w-full max-w-lg mx-auto" />
 

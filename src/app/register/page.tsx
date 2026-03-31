@@ -12,10 +12,13 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  async function handleSubmit(formData: FormData) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
     setLoading(true);
     setError(null);
-    
+
+    const formData = new FormData(e.currentTarget);
+
     const password = formData.get("password") as string;
     const confirmPassword = formData.get("confirmPassword") as string;
 
@@ -26,7 +29,7 @@ export default function RegisterPage() {
     }
 
     const result = await registerUser(formData);
-    
+
     if (result.error) {
       setError(result.error);
       setLoading(false);
@@ -39,7 +42,7 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen bg-[var(--background)] flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-xl bg-white rounded-3xl shadow-xl overflow-hidden border-2 border-[var(--border)]">
-        
+
         {/* Header Section */}
         <div className="bg-[var(--foreground)] p-8 text-center text-white flex flex-col items-center relative">
           <Link href="/login" className="absolute left-6 top-8 text-white/70 hover:text-white transition-colors">
@@ -60,7 +63,7 @@ export default function RegisterPage() {
              </div>
           )}
 
-          <form action={handleSubmit} className="flex flex-col gap-6">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-6">
             <div>
               <label className="block text-xl font-bold text-[var(--foreground)] mb-2 flex items-center gap-2">
                 <User size={20} className="text-[var(--primary)]" /> Full Name

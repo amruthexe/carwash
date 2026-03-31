@@ -1,9 +1,10 @@
 import { auth } from "@/auth";
 import { connectToDatabase } from "@/lib/db";
 import Vehicle from "@/models/Vehicle";
-import { ServiceRequest, WorkerAvailability } from "@/models/Service";
+import User from "@/models/User";
+import { ServiceRequest } from "@/models/Service";
 import { redirect } from "next/navigation";
-import { CheckCircle2, Clock, CalendarCheck, Info } from "lucide-react";
+import { CheckCircle2, Clock, Info } from "lucide-react";
 
 async function bookWash(formData: FormData) {
   "use server";
@@ -12,17 +13,17 @@ async function bookWash(formData: FormData) {
 
   const vehicleId = formData.get("vehicleId") as string;
   const pickedDateTime = formData.get("scheduledTime") as string;
-  
+
   if (!vehicleId || !pickedDateTime) return;
 
   await connectToDatabase();
-  
+
   const scheduledTime = new Date(pickedDateTime);
   const now = new Date();
 
   // Safety buffer: Must be at least 2 hours in the future
   const minimumTime = new Date(now.getTime() + 2 * 60 * 60 * 1000);
-  
+
   if (scheduledTime < minimumTime) {
     redirect('/dashboard/book?error=too_soon');
   }
@@ -61,6 +62,14 @@ export default async function BookWashPage({ searchParams }: { searchParams: Pro
 
   if (vehicles.length === 0) {
     redirect('/dashboard/vehicles');
+  }
+
+  // Check if user has completed their profile address
+  const userDoc = await User.findById(session.user.id).lean();
+  const address = userDoc?.address;
+  const isAddressComplete = address?.city && address?.community && address?.block && address?.flatNumber;
+  if (!isAddressComplete) {
+    redirect('/dashboard/complete-profile?redirectTo=/dashboard/book');
   }
 
   // Calculate default min time (+2 hours)

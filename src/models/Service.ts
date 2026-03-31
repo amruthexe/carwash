@@ -8,6 +8,14 @@ export interface IServiceRequest extends Document {
   scheduledTime: Date; // auto = requestedTime + 2 hours
   status: 'pending' | 'assigned' | 'in_progress' | 'completed' | 'cancelled' | 'failed' | 'no_show' | 'rescheduled';
   notes?: string;
+  lastModifiedBy?: mongoose.Types.ObjectId; // admin or worker who last changed status
+  lastModifiedAt?: Date;
+  statusHistory: {
+    status: string;
+    changedBy: mongoose.Types.ObjectId;
+    changedAt: Date;
+    notes?: string;
+  }[];
   createdAt: Date;
 }
 
@@ -17,12 +25,20 @@ const ServiceRequestSchema: Schema = new Schema({
   subscriptionId: { type: Schema.Types.ObjectId, ref: 'Subscription' },
   requestedTime: { type: Date, required: true },
   scheduledTime: { type: Date, required: true },
-  status: { 
-    type: String, 
+  status: {
+    type: String,
     enum: ['pending', 'assigned', 'in_progress', 'completed', 'cancelled', 'failed', 'no_show', 'rescheduled'],
     default: 'pending'
   },
-  notes: { type: String }
+  notes: { type: String },
+  lastModifiedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+  lastModifiedAt: { type: Date },
+  statusHistory: [{
+    status: { type: String, required: true },
+    changedBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    changedAt: { type: Date, default: Date.now },
+    notes: { type: String }
+  }]
 }, { timestamps: true });
 
 export const ServiceRequest = mongoose.models.ServiceRequest || mongoose.model<IServiceRequest>('ServiceRequest', ServiceRequestSchema);

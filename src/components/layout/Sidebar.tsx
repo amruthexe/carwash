@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Car, CalendarDays, Receipt, LucideIcon } from "lucide-react";
+import { Home, Car, CalendarDays, Receipt, User, LucideIcon } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -39,6 +39,7 @@ export default function Sidebar() {
   return (
     <nav className="flex items-center md:flex-col gap-4 overflow-x-auto md:overflow-visible pb-4 md:pb-0">
       <SidebarItem href="/dashboard" icon={Home} label="Home" />
+      <SidebarItem href="/dashboard/profile" icon={User} label="My Profile" />
       <SidebarItem href="/dashboard/vehicles" icon={Car} label="My Vehicles" />
       <SidebarItem href="/dashboard/subscription" icon={CalendarDays} label="Plans" />
       <SidebarItem href="/dashboard/history" icon={Receipt} label="History" />

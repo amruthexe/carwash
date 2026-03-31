@@ -2,8 +2,9 @@ import { auth } from "@/auth";
 import { connectToDatabase } from "@/lib/db";
 import { ServiceRequest } from "@/models/Service";
 import Vehicle from "@/models/Vehicle";
+import User from "@/models/User";
 import Link from "next/link";
-import { CalendarCheck, Car, Clock, ShieldCheck } from "lucide-react";
+import { CalendarCheck, Car, Clock, ShieldCheck, AlertCircle } from "lucide-react";
 
 export default async function DashboardHome() {
   const session = await auth();
@@ -11,8 +12,13 @@ export default async function DashboardHome() {
 
   await connectToDatabase();
 
+  // Fetch user's address for completeness check
+  const user = await User.findById(session.user.id).lean();
+  const address = user?.address;
+  const isAddressComplete = address?.city && address?.community && address?.block && address?.flatNumber;
+
   // Fetch user's vehicles to see if they can book a wash
-  const vehicles = await Vehicle.find({ userId: session.user.id, status: 'active' }).lean();
+  const vehicles = await Vehicle.find({ userId: session.user.id, status: 'active' }).lean();;
   
   // Fetch active or pending service requests
   const activeRequests = await ServiceRequest.find({
@@ -37,15 +43,31 @@ export default async function DashboardHome() {
         </div>
       </div>
 
+      {/* Address Completion Banner (show if incomplete) */}
+      {!isAddressComplete && (
+        <div className="bg-yellow-50 p-6 rounded-2xl flex items-start gap-4 border-2 border-yellow-300 shadow-sm">
+          <AlertCircle className="w-8 h-8 text-yellow-600 shrink-0" />
+          <div>
+            <p className="text-xl font-bold text-yellow-900">Complete your profile</p>
+            <p className="text-lg text-yellow-800">
+              Please provide your address details to enable booking.{" "}
+              <Link href="/dashboard/complete-profile" className="underline font-bold">
+                Complete now
+              </Link>
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Main Action - HUGE BUTTON */}
       {vehicles.length > 0 ? (
         <div className="flex justify-center mt-10">
-          <Link 
-            href="/dashboard/book"
+          <Link
+            href={isAddressComplete ? "/dashboard/book" : "/dashboard/complete-profile?redirectTo=/dashboard/book"}
             className="w-full max-w-xl py-8 px-6 bg-[var(--primary)] hover:bg-[var(--secondary-foreground)] text-white text-3xl md:text-4xl font-extrabold rounded-3xl shadow-2xl hover:shadow-3xl hover:-translate-y-2 transition-all flex flex-col items-center justify-center gap-4 border-4 border-[var(--border)]"
           >
             <CalendarCheck className="w-16 h-16" />
-            Book a Wash Now
+            {isAddressComplete ? "Book a Wash Now" : "Complete Profile to Book"}
           </Link>
         </div>
       ) : (
