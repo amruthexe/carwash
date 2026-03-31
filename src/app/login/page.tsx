@@ -40,9 +40,8 @@ export default function LoginPage() {
   // ✅ GOOGLE LOGIN
   const handleGoogle = async () => {
     setLoading(true);
-    // Remove hardcoded dashboard redirect, let the middleware redirect based on role
-    // Or it will default to '/' and middleware will catch '/login' or '/dashboard'
-    await signIn("google");
+    // Redirect to dashboard after Google OAuth; profile completeness will be checked there
+    await signIn("google", { callbackUrl: '/dashboard' });
   };
 
   // ✅ CREDENTIAL LOGIN (FIXED)
