@@ -5,89 +5,118 @@ import { connectToDatabase } from "@/lib/db";
 import { ServiceRequest, WorkerAssignment } from "@/models/Service";
 import { revalidatePath } from "next/cache";
 
-export async function updateServiceStatus(formData: FormData) {
+export async function assignWorker(formData: FormData): Promise<void> {
   const session = await auth();
   if (!session?.user?.id) {
-    return { success: false, error: "Unauthorized" };
+    return;
   }
 
   const requestId = formData.get("requestId") as string;
-  const newStatus = formData.get("newStatus") as string;
-  const notes = formData.get("notes") as string;
-
-  if (!requestId || !newStatus) {
-    return { success: false, error: "Missing required fields" };
+  const workerId = formData.get("workerId") as string;
+  if (!requestId || !workerId) {
+    return;
   }
 
   try {
     await connectToDatabase();
 
-    // Get the request to verify it exists
-    const request = await ServiceRequest.findById(requestId);
-    if (!request) {
-      return { success: false, error: "Service request not found" };
+    // Check for existing assignment to this request
+    const existingAssignment = await WorkerAssignment.findOne({
+      requestId,
+      status: { $in: ['assigned', 'accepted', 'in_progress'] }
+    });
+
+    if (existingAssignment) {
+      if (existingAssignment.workerId.toString() === workerId) {
+        // Same worker, no change needed
+        return;
+      }
+
+      // Cancel the OLD assignment
+      await WorkerAssignment.findByIdAndUpdate(existingAssignment._id, { status: 'rejected' });
+
+      // Send notification to old worker (optional - if Notification model exists)
+      try {
+        const { Notification } = await import("@/models/Notification");
+        await Notification.create({
+          userId: existingAssignment.workerId,
+          title: "Task Cancelled / Reassigned",
+          message: "An admin has reassigned a task that was previously on your list.",
+          type: "service",
+          status: "sent"
+        });
+      } catch (e) {
+        // Notification model may not exist yet, skip silently
+        console.log("Notification system not available");
+      }
     }
 
-    // Update status with tracking
+    // Update request status to 'assigned' with tracking
     const updateData: any = {
-      status: newStatus,
+      status: "assigned",
       lastModifiedBy: session.user.id,
       lastModifiedAt: new Date()
     };
 
-    // Push to status history
     await ServiceRequest.findByIdAndUpdate(requestId, {
       ...updateData,
       $push: {
         statusHistory: {
-          status: newStatus,
+          status: "assigned",
           changedBy: session.user.id,
-          changedAt: new Date(),
-          notes: notes || undefined
+          changedAt: new Date()
         }
       }
     });
 
-    // If status is 'assigned', also create/update WorkerAssignment
-    if (newStatus === 'assigned') {
-      const workerId = formData.get("workerId") as string;
-      if (workerId) {
-        // Check for existing active assignment
-        const existing = await WorkerAssignment.findOne({
-          requestId,
-          status: { $in: ['assigned', 'accepted', 'in_progress'] }
-        });
+    // Get vehicle info for notifications
+    const req = await ServiceRequest.findById(requestId).populate('vehicleId');
 
-        if (existing) {
-          if (existing.workerId.toString() !== workerId) {
-            // Reassign to different worker
-            await WorkerAssignment.findByIdAndUpdate(existing._id, { status: 'rejected' });
-            await WorkerAssignment.create({
-              requestId,
-              workerId,
-              assignedBy: session.user.id,
-              status: 'assigned'
-            });
-          }
-        } else {
-          // Create new assignment
-          await WorkerAssignment.create({
-            requestId,
-            workerId,
-            assignedBy: session.user.id,
-            status: 'assigned'
-          });
-        }
+    // Create new assignment
+    await WorkerAssignment.create({
+      requestId,
+      workerId,
+      assignedBy: session.user.id,
+      status: 'assigned'
+    });
+
+    // Notify new worker
+    try {
+      const { Notification } = await import("@/models/Notification");
+      await Notification.create({
+        userId: workerId,
+        title: "New Job Assigned!",
+        message: `You have been assigned a new wash for ${req.vehicleId?.vehicleModel || 'a vehicle'}.`,
+        type: "service",
+        status: "sent"
+      });
+    } catch (e) {
+      console.log("Notification system not available");
+    }
+
+    // Notify customer (only if it's the first assignment)
+    if (!existingAssignment && req.vehicleId?.userId) {
+      try {
+        const { Notification } = await import("@/models/Notification");
+        await Notification.create({
+          userId: req.vehicleId.userId,
+          title: "Worker Assigned!",
+          message: `A worker has been assigned to your ${req.vehicleId.vehicleModel} wash!`,
+          type: "service",
+          status: "sent"
+        });
+      } catch (e) {
+        console.log("Notification system not available");
       }
     }
 
     revalidatePath('/admin');
     revalidatePath('/worker');
 
-    return { success: true };
+    return;
   } catch (error) {
-    console.error("Update service status error:", error);
-    return { success: false, error: "Failed to update status" };
+    console.error("Assign worker error:", error);
+    return;
   }
 }
 
@@ -116,4 +145,55 @@ export async function getWorkerOngoingCounts() {
   });
 
   return countMap;
+}
+
+export async function updateServiceStatus(formData: FormData) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { success: false, error: "Unauthorized" };
+  }
+
+  const requestId = formData.get("requestId") as string;
+  const newStatus = formData.get("newStatus") as string;
+  const notes = formData.get("notes") as string;
+
+  if (!requestId || !newStatus) {
+    return { success: false, error: "Missing required fields" };
+  }
+
+  try {
+    await connectToDatabase();
+
+    const request = await ServiceRequest.findById(requestId);
+    if (!request) {
+      return { success: false, error: "Service request not found" };
+    }
+
+    // Update status with tracking
+    const updateData: any = {
+      status: newStatus,
+      lastModifiedBy: session.user.id,
+      lastModifiedAt: new Date()
+    };
+
+    await ServiceRequest.findByIdAndUpdate(requestId, {
+      ...updateData,
+      $push: {
+        statusHistory: {
+          status: newStatus,
+          changedBy: session.user.id,
+          changedAt: new Date(),
+          notes: notes || undefined
+        }
+      }
+    });
+
+    revalidatePath('/admin');
+    revalidatePath('/worker');
+
+    return { success: true };
+  } catch (error) {
+    console.error("Update service status error:", error);
+    return { success: false, error: "Failed to update status" };
+  }
 }
