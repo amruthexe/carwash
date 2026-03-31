@@ -98,8 +98,8 @@ body {
 }
 
 @theme inline {
-  --font-heading: var(--font-sans);
-  --font-sans: var(--font-sans);
+  --font-heading: var(--font-poppins);
+  --font-sans: var(--font-poppins);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -184,4 +184,20 @@ body {
   html {
     @apply font-sans;
   }
+}
+
+.nav-link {
+  @apply text-sm font-medium text-[var(--muted-foreground)] hover:text-[var(--primary)] transition;
+}
+
+.mobile-link {
+  @apply text-base font-medium text-[var(--foreground)] hover:text-[var(--primary)] transition;
+}
+
+.btn-primary {
+  @apply px-6 py-2 text-sm font-semibold rounded-full text-white bg-[var(--primary)] shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all;
+}
+
+.btn-secondary {
+  @apply px-5 py-2 text-sm font-semibold rounded-full text-[var(--foreground)] hover:bg-[var(--secondary)] transition;
 }

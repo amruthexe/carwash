@@ -1,6 +1,7 @@
-import { auth, signOut } from "@/auth";
+import { auth } from "@/auth";
 import Image from "next/image";
-import { LogOut, Wrench } from "lucide-react";
+import { Wrench } from "lucide-react";
+import SignOutButton from "@/components/auth/SignOutButton";
 
 export default async function WorkerLayout({
   children,
@@ -21,17 +22,10 @@ export default async function WorkerLayout({
           </div>
         </div>
 
-        <form
-          action={async () => {
-            "use server";
-            await signOut({ redirectTo: "/" });
-          }}
-        >
-          <button type="submit" className="flex items-center gap-2 px-6 py-3 text-lg font-bold bg-slate-800 text-white hover:bg-red-600 transition-colors rounded-xl shadow border border-slate-700">
-            <LogOut className="w-6 h-6" />
-            <span className="hidden sm:inline">Sign Out</span>
-          </button>
-        </form>
+        <SignOutButton 
+          variant="worker" 
+          className="flex items-center gap-2 px-6 py-3 text-lg font-bold bg-slate-800 text-white hover:bg-red-600 transition-colors rounded-xl shadow border border-slate-700" 
+        />
       </header>
 
       {/* Main Area */}

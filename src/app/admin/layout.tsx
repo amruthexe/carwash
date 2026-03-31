@@ -1,6 +1,7 @@
-import { auth, signOut } from "@/auth";
+import { auth } from "@/auth";
 import Link from "next/link";
-import { LogOut, Users, ClipboardList, Shield } from "lucide-react";
+import { Users, ClipboardList, Shield } from "lucide-react";
+import SignOutButton from "@/components/auth/SignOutButton";
 
 export default async function AdminLayout({
   children,
@@ -28,17 +29,7 @@ export default async function AdminLayout({
 
         <div className="mt-8 border-t border-slate-700 pt-6">
           <p className="text-sm font-bold mb-4 opacity-50">ADMIN ACCOUNT</p>
-          <form
-            action={async () => {
-              "use server";
-              await signOut({ redirectTo: "/" });
-            }}
-          >
-            <button type="submit" className="flex items-center gap-3 w-full p-3 font-semibold bg-red-950 text-red-200 rounded-lg hover:bg-red-900 transition-colors">
-              <LogOut className="w-5 h-5" />
-              Sign Out
-            </button>
-          </form>
+          <SignOutButton variant="admin" />
         </div>
       </aside>
 

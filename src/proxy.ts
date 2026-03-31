@@ -1,11 +1,11 @@
-import NextAuth from 'next-auth';
-import { authConfig } from '@/auth.config';
+import { auth } from "@/auth";
 import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
 
-const { auth } = NextAuth(authConfig);
-
-export default auth((request) => {
+/**
+ * Next.js 16+ Proxy (formerly Middleware) logic.
+ * Corrected to use auth from @/auth for proper session management.
+ */
+export const proxy = auth((request) => {
   const session = request.auth;
   const { pathname } = request.nextUrl;
 
@@ -20,8 +20,12 @@ export default auth((request) => {
   }
 
   // Protect Customer Routes
-  if (pathname.startsWith('/dashboard') && !session) {
-    return NextResponse.redirect(new URL('/login', request.url));
+  if (pathname.startsWith('/dashboard')) {
+    if (!session) return NextResponse.redirect(new URL('/login', request.url));
+    // @ts-ignore
+    const role = session.user?.role;
+    if (role === 'admin') return NextResponse.redirect(new URL('/admin', request.url));
+    if (role === 'worker') return NextResponse.redirect(new URL('/worker', request.url));
   }
 
   // Protect Worker Routes

@@ -5,6 +5,8 @@ import { connectToDatabase } from "./lib/db";
 import User from "./models/User";
 import { authConfig } from "./auth.config";
 
+import bcrypt from "bcryptjs";
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
   providers: [
@@ -23,8 +25,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         await connectToDatabase();
         
+        const email = credentials.email as string;
+        const password = credentials.password as string;
+
         // --- MOCK CUSTOMER BACKDOOR FOR TESTING WITHOUT GOOGLE OAUTH ---
-        if (credentials.email === "customer@test.com" && credentials.password === "customer123") {
+        if (email === "customer@test.com" && password === "customer123") {
           let mockCustomer = await User.findOne({ email: "customer@test.com" });
           if (!mockCustomer) {
              mockCustomer = await User.create({
@@ -43,7 +48,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         // --- MOCK ADMIN BACKDOOR FOR TESTING ---
-        if (credentials.email === "admin@test.com" && credentials.password === "admin123") {
+        if (email === "admin@test.com" && password === "admin123") {
           let mockAdmin = await User.findOne({ email: "admin@test.com" });
           if (!mockAdmin) {
              mockAdmin = await User.create({
@@ -62,7 +67,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         // --- MOCK WORKER BACKDOOR FOR TESTING ---
-        if (credentials.email === "worker@test.com" && credentials.password === "worker123") {
+        if (email === "worker@test.com" && password === "worker123") {
           let mockWorker = await User.findOne({ email: "worker@test.com" });
           if (!mockWorker) {
              mockWorker = await User.create({
@@ -81,10 +86,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
         // -------------------------------------------------------------
 
-        const user = await User.findOne({ email: credentials.email });
+        const user = await User.findOne({ email: email });
+
+        if (user && user.password) {
+          const isPasswordCorrect = await bcrypt.compare(password, user.password);
+          if (isPasswordCorrect) {
+            return {
+              id: user._id.toString(),
+              name: user.name,
+              email: user.email,
+              role: user.role,
+            };
+          }
+        }
 
         // Simple mock auth for non-customers via seed password for simplicity
-        if (user && (credentials.password === "admin123" || credentials.password === "admin@123")) {
+        if (user && (password === "admin123" || password === "admin@123")) {
           return {
             id: user._id.toString(),
             name: user.name,

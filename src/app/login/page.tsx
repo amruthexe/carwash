@@ -1,117 +1,255 @@
-import { signIn } from "@/auth";
-import Image from "next/image";
-import { Car, Building, Shield } from "lucide-react";
-import { AuthError } from "next-auth";
-import { redirect } from "next/navigation";
+"use client";
 
-async function loginGoogle() {
-  "use server";
-  await signIn("google", { redirectTo: "/dashboard" });
-}
+import { motion, AnimatePresence } from "framer-motion";
+import { signIn, getSession } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
+import { useState } from "react";
 
-async function loginStaff(formData: FormData) {
-  "use server";
-  try {
-    await signIn("credentials", formData, { redirectTo: "/dashboard" });
-  } catch (error) {
-    if (error instanceof AuthError) {
-      if (error.type === 'CredentialsSignin') {
-         redirect('/login?error=InvalidCredentials');
-      }
+import { FcGoogle } from "react-icons/fc";
+import { Loader2, LockKeyhole, Mail } from "lucide-react";
+
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+
+import { Separator } from "@/components/ui/separator";
+import Link from "next/link";
+
+export default function LoginPage() {
+  const params = useSearchParams();
+  const urlError = params.get("error");
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(urlError);
+
+  // ✅ GOOGLE LOGIN
+  const handleGoogle = async () => {
+    setLoading(true);
+    // Remove hardcoded dashboard redirect, let the middleware redirect based on role
+    // Or it will default to '/' and middleware will catch '/login' or '/dashboard'
+    await signIn("google");
+  };
+
+  // ✅ CREDENTIAL LOGIN (FIXED)
+  const handleCredentials = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    const form = new FormData(e.currentTarget);
+
+    const res = await signIn("credentials", {
+      email: form.get("email"),
+      password: form.get("password"),
+      redirect: false, // 🔥 IMPORTANT
+    });
+
+    setLoading(false);
+
+    if (res?.error) {
+      setError("Invalid email or password ❌");
+    } else {
+      const session = await getSession();
+      // @ts-ignore
+      const role = session?.user?.role;
+      if (role === 'admin') window.location.href = "/admin";
+      else if (role === 'worker') window.location.href = "/worker";
+      else window.location.href = "/dashboard";
     }
-    // Rethrow standard Next redirects
-    throw error;
-  }
-}
+  };
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  const resolvedParams = await searchParams;
-  
   return (
-    <div className="min-h-screen bg-[var(--background)] flex flex-col items-center justify-center p-6">
-      <div className="w-full max-w-xl bg-white rounded-3xl shadow-xl overflow-hidden border-2 border-[var(--border)]">
+    <div className="min-h-screen flex items-center justify-center bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-50 via-slate-50 to-slate-100 px-4 py-12">
+      
+      <Card className="w-full max-w-[450px] border-none shadow-[0_20px_50px_rgba(8,_112,_184,_0.1)] rounded-[2rem] overflow-hidden bg-white/80 backdrop-blur-sm">
         
-        {/* Header Section */}
-        <div className="bg-[var(--foreground)] p-8 text-center text-white flex flex-col items-center">
-          <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mb-6 overflow-hidden">
-             <Image src="/logo.png" alt="PureWash Logo" width={80} height={80} className="object-cover grayscale brightness-200" priority />
+        {/* HEADER */}
+        <CardHeader className="pt-10 pb-6 text-center">
+          <div className="mx-auto w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-blue-200">
+            <span className="text-white font-bold text-xl">P</span>
           </div>
-          <h1 className="text-4xl font-extrabold mb-2">Welcome to PureWash</h1>
-          <p className="text-xl text-[var(--border)]">Your community car cleaning service.</p>
-        </div>
 
-        {/* Login Options Section */}
-        <div className="p-8 md:p-12 text-center">
-          {resolvedParams?.error && (
-             <div className="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
-               <strong className="font-bold">Login Failed!</strong>
-               <span className="block sm:inline"> Please check your email and password.</span>
-             </div>
+          <CardTitle className="text-3xl font-extrabold text-slate-900">
+            Welcome Back
+          </CardTitle>
+
+          <CardDescription className="text-base text-slate-500">
+            Log in to your account
+          </CardDescription>
+        </CardHeader>
+
+        {/* BODY */}
+        <CardContent className="px-8 pb-10">
+
+          {/* ERROR MESSAGE */}
+          {error && (
+            <div className="mb-6 p-3 rounded-xl bg-red-50 border border-red-100 text-sm text-red-600 text-center">
+              {error}
+            </div>
           )}
 
-          <h2 className="text-2xl font-bold text-[var(--foreground)] mb-8">Choose how to sign in:</h2>
+          <Tabs defaultValue="customer" className="w-full">
 
-          {/* Customer Login (Giant Button) */}
-          <form action={loginGoogle} className="mb-8">
-            <button
-              type="submit"
-              className="w-full py-6 px-6 rounded-2xl bg-[var(--primary)] hover:bg-[var(--secondary-foreground)] text-white text-2xl font-bold flex items-center justify-center gap-4 transition-transform hover:scale-105 shadow-lg flex-col sm:flex-row"
-            >
-              <div className="bg-white p-2 rounded-full">
-                <Car className="text-[var(--primary)] w-8 h-8" />
+            {/* TAB SWITCH */}
+            <TabsList className="grid grid-cols-2 w-full p-1  rounded-2xl mb-8 h-12">
+              <TabsTrigger value="customer">Customer</TabsTrigger>
+              <TabsTrigger value="staff">Staff</TabsTrigger>
+            </TabsList>
+
+            {/* GOOGLE LOGIN */}
+            <TabsContent value="customer" className="space-y-6">
+
+ <form onSubmit={handleCredentials} className="space-y-5">
+
+                {/* EMAIL */}
+                <div className="space-y-2">
+                  <Label>Email</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
+                    <Input
+                      name="email"
+                      type="email"
+                      required
+                      className="pl-10 h-12"
+                      placeholder="admin@test.com"
+                    />
+                  </div>
+                </div>
+
+                {/* PASSWORD */}
+                <div className="space-y-2">
+                  <Label>Password</Label>
+                  <div className="relative">
+                    <LockKeyhole className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
+                    <Input
+                      name="password"
+                      type="password"
+                      required
+                      className="pl-10 h-12"
+                    />
+                  </div>
+                </div>
+
+                {/* BUTTON */}
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full h-12 text-base font-bold bg-blue-600 hover:bg-blue-700"
+                >
+                  {loading ? (
+                    <Loader2 className="animate-spin" />
+                  ) : (
+                    "Login"
+                  )}
+                </Button>
+              </form>
+
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-white px-4 text-slate-400">
+                    Fastest way
+                  </span>
+                </div>
+
+
+              <Button
+                onClick={handleGoogle}
+                disabled={loading}
+                variant="outline"
+                className="w-full h-12 text-base font-semibold flex gap-3"
+              >
+                {loading ? (
+                  <Loader2 className="animate-spin" />
+                ) : (
+                  <FcGoogle size={22} />
+                )}
+                Continue with Google
+              </Button>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <Separator />
+                </div>
               </div>
-              Sign in as Customer (Google)
-            </button>
-            <p className="mt-4 text-lg text-[var(--muted-foreground)]">For residents booking a car wash.</p>
-          </form>
+            </TabsContent>
 
-          <hr className="border-[var(--border)] my-10 border-2" />
+            {/* CREDENTIAL LOGIN */}
+            <TabsContent value="staff" className="space-y-4">
 
-          {/* Worker / Admin / Test Customer Details */}
-          <h3 className="text-xl font-bold text-[var(--foreground)] mb-2">Staff & Test Login</h3>
-          <p className="text-sm text-[var(--muted-foreground)] mb-6 text-left bg-blue-50 p-4 border border-blue-100 rounded-lg space-y-2">
-             <span><strong>Testing the app?</strong> Use these mock accounts:</span>
-             <br />
-             <span>🧑‍🦳 Customer: <strong>customer@test.com</strong> | Pass: <strong>customer123</strong></span>
-             <br />
-             <span>🛡️ Admin: <strong>admin@test.com</strong> | Pass: <strong>admin123</strong></span>
-             <br />
-             <span>🛠️ Worker: <strong>worker@test.com</strong> | Pass: <strong>worker123</strong></span>
+              <form onSubmit={handleCredentials} className="space-y-5">
+
+                {/* EMAIL */}
+                <div className="space-y-2">
+                  <Label>Email</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
+                    <Input
+                      name="email"
+                      type="email"
+                      required
+                      className="pl-10 h-12"
+                      placeholder="admin@test.com"
+                    />
+                  </div>
+                </div>
+
+                {/* PASSWORD */}
+                <div className="space-y-2">
+                  <Label>Password</Label>
+                  <div className="relative">
+                    <LockKeyhole className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
+                    <Input
+                      name="password"
+                      type="password"
+                      required
+                      className="pl-10 h-12"
+                    />
+                  </div>
+                </div>
+
+                {/* BUTTON */}
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full h-12 text-base font-bold bg-blue-600 hover:bg-blue-700"
+                >
+                  {loading ? (
+                    <Loader2 className="animate-spin" />
+                  ) : (
+                    "Login"
+                  )}
+                </Button>
+              </form>
+
+            </TabsContent>
+          </Tabs>
+
+          {/* FOOTER */}
+        <Link href="/register">
+            <p className="mt-8 text-center text-sm text-slate-400">
+            Don’t have an account?{" "}
+            <span className="text-blue-600 font-semibold cursor-pointer hover:underline">
+              Sign up
+            </span>
           </p>
-          <form action={loginStaff} className="flex flex-col gap-6 text-left">
-            <div>
-              <label className="block text-xl font-bold text-[var(--foreground)] mb-2">Email Address</label>
-              <input 
-                name="email" 
-                type="email" 
-                placeholder="customer@test.com" 
-                className="w-full text-xl p-4 border-2 border-[var(--border)] rounded-xl focus:border-[var(--primary)] focus:outline-none focus:ring-4 ring-[var(--secondary)]"
-                required
-              />
-            </div>
-            
-            <div>
-              <label className="block text-xl font-bold text-[var(--foreground)] mb-2">Password</label>
-              <input 
-                name="password" 
-                type="password" 
-                placeholder="customer123" 
-                className="w-full text-xl p-4 border-2 border-[var(--border)] rounded-xl focus:border-[var(--primary)] focus:outline-none focus:ring-4 ring-[var(--secondary)]"
-                required
-              />
-            </div>
-            
-            <button
-              type="submit"
-              className="w-full py-5 rounded-2xl bg-[var(--foreground)] hover:bg-slate-800 text-white text-xl font-bold flex items-center justify-center gap-3 transition-colors shadow-md mt-4"
-            >
-              <Building className="w-6 h-6" />
-              Sign in Manually
-            </button>
-          </form>
+        </Link>
 
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -11,29 +11,31 @@ async function bookWash(formData: FormData) {
   if (!session?.user?.id) return;
 
   const vehicleId = formData.get("vehicleId") as string;
-  const timeOption = formData.get("timeOption") as string;
-  if (!vehicleId) return;
+  const pickedDateTime = formData.get("scheduledTime") as string;
+  
+  if (!vehicleId || !pickedDateTime) return;
 
   await connectToDatabase();
   
-  // Date logic - minimum +2 hours
+  const scheduledTime = new Date(pickedDateTime);
   const now = new Date();
-  let scheduledTime = new Date(now.getTime() + 2 * 60 * 60 * 1000); // exactly 2 hours from now
 
-  if (timeOption === 'tomorrow') {
-    scheduledTime = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-    scheduledTime.setHours(9, 0, 0, 0); // 9 AM tomorrow
+  // Safety buffer: Must be at least 2 hours in the future
+  const minimumTime = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+  
+  if (scheduledTime < minimumTime) {
+    redirect('/dashboard/book?error=too_soon');
   }
 
-  // Find if user already has an active request for this vehicle
-  const existingReq = await ServiceRequest.findOne({
+  // Find if user already has a request at the SAME EXACT MINUTE for this vehicle
+  const docAtSameTime = await ServiceRequest.findOne({
     vehicleId,
-    status: { $in: ['pending', 'assigned', 'in_progress'] }
+    scheduledTime: scheduledTime,
+    status: { $ne: 'cancelled' }
   });
 
-  if (existingReq) {
-    // Prevent double booking
-    redirect('/dashboard?error=already_booked');
+  if (docAtSameTime) {
+    redirect('/dashboard/book?error=time_taken');
   }
 
   // Create the service request
@@ -45,16 +47,14 @@ async function bookWash(formData: FormData) {
     status: 'pending'
   });
 
-  // Simple auto-assignment logic
-  // Admin assigns via dashboard, or we could automatically assign an available worker here.
-  // We'll leave it pending for admin/system assignment queue.
-
   redirect('/dashboard');
 }
 
-export default async function BookWashPage() {
+export default async function BookWashPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   const session = await auth();
   if (!session?.user?.id) return null;
+
+  const resolvedParams = await searchParams;
 
   await connectToDatabase();
   const vehicles = await Vehicle.find({ userId: session.user.id, status: 'active' }).lean();
@@ -63,16 +63,35 @@ export default async function BookWashPage() {
     redirect('/dashboard/vehicles');
   }
 
+  // Calculate default min time (+2 hours)
+  const now = new Date();
+  const minTime = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+  const minTimeStr = minTime.toISOString().slice(0, 16);
+
   return (
     <div className="max-w-3xl mx-auto pb-24 space-y-8">
       <h1 className="text-4xl font-extrabold text-[var(--foreground)] tracking-tight text-center md:text-left">
         Schedule a Wash
       </h1>
 
+      {resolvedParams.error === 'too_soon' && (
+        <div className="bg-red-100 border-2 border-red-400 text-red-700 p-6 rounded-2xl flex items-center gap-4">
+          <Info className="w-8 h-8 shrink-0" />
+          <p className="text-xl font-bold">Please pick a time at least 2 hours from now.</p>
+        </div>
+      )}
+
+      {resolvedParams.error === 'time_taken' && (
+        <div className="bg-red-100 border-2 border-red-400 text-red-700 p-6 rounded-2xl flex items-center gap-4">
+          <Info className="w-8 h-8 shrink-0" />
+          <p className="text-xl font-bold">You already have a wash scheduled for this exact time.</p>
+        </div>
+      )}
+
       <div className="bg-blue-50 p-6 rounded-2xl flex items-start gap-4 border border-blue-200 shadow-sm">
         <Info className="w-8 h-8 text-blue-600 shrink-0" />
         <p className="text-xl text-blue-900 font-medium">
-          Note: Your wash is scheduled for the next available slot at least <strong>2 hours</strong> from now.
+          Note: Pick any date and time! We just need at least <strong>2 hours</strong> notice to prepare.
         </p>
       </div>
 
@@ -109,20 +128,17 @@ export default async function BookWashPage() {
         {/* Step 2: Time Selection */}
         <div>
           <h2 className="text-3xl font-bold text-[var(--foreground)] mb-6">2. When should we come?</h2>
-          <div className="flex flex-col md:flex-row gap-6">
-            <label className="flex-1 flex flex-col items-center justify-center p-8 border-4 border-[var(--border)] rounded-2xl cursor-pointer hover:border-[var(--primary)] has-[:checked]:border-[var(--primary)] has-[:checked]:bg-[var(--secondary)] transition-all text-center">
-              <input type="radio" name="timeOption" value="asap" defaultChecked className="hidden" />
-              <Clock className="w-16 h-16 text-[var(--primary)] mb-4" />
-              <span className="text-2xl font-bold">Today (ASAP)</span>
-              <span className="text-lg text-[var(--muted-foreground)] block mt-2">In 2 Hours</span>
-            </label>
-            
-            <label className="flex-1 flex flex-col items-center justify-center p-8 border-4 border-[var(--border)] rounded-2xl cursor-pointer hover:border-[var(--primary)] has-[:checked]:border-[var(--primary)] has-[:checked]:bg-[var(--secondary)] transition-all text-center">
-              <input type="radio" name="timeOption" value="tomorrow" className="hidden" />
-              <CalendarCheck className="w-16 h-16 text-[var(--primary)] mb-4" />
-              <span className="text-2xl font-bold">Tomorrow</span>
-              <span className="text-lg text-[var(--muted-foreground)] block mt-2">Morning (9 AM)</span>
-            </label>
+          <div className="space-y-4">
+            <label className="block text-xl font-bold text-[var(--foreground)]">Select Date & Time</label>
+            <input 
+              type="datetime-local" 
+              name="scheduledTime"
+              min={minTimeStr}
+              defaultValue={minTimeStr}
+              required
+              className="w-full p-6 text-3xl font-bold border-4 border-[var(--border)] rounded-2xl focus:border-[var(--primary)] focus:outline-none transition-all shadow-inner"
+            />
+            <p className="text-lg text-[var(--muted-foreground)]">Tap above to open the calendar.</p>
           </div>
         </div>
 
