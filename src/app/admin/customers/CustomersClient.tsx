@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { Mail, Phone, Shield, User as UserIcon } from "lucide-react";
+import { useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { Mail, Phone, User as UserIcon, MapPin } from "lucide-react";
 
 interface Customer {
   _id: string;
@@ -12,6 +12,12 @@ interface Customer {
   role: string;
   status: string;
   createdAt: string;
+  address?: {
+    city: string;
+    community: string;
+    block: string;
+    flatNumber: string;
+  };
 }
 
 interface CustomersClientProps {
@@ -26,27 +32,6 @@ export default function CustomersClient({
   currentPage,
 }: CustomersClientProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const searchQuery = searchParams.get("search") || "";
-
-  const [searchTerm, setSearchTerm] = useState(searchQuery);
-  const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
-
-  // Debounce search input
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(searchTerm);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchTerm]);
-
-  // Update URL when search changes
-  useEffect(() => {
-    const params = new URLSearchParams();
-    if (debouncedSearch) params.set("search", debouncedSearch);
-    params.set("page", "1");
-    router.push(`/admin/customers?${params.toString()}`);
-  }, [debouncedSearch, router]);
 
   const customers = useMemo(() => initialCustomers, [initialCustomers]);
 
@@ -56,15 +41,21 @@ export default function CustomersClient({
       : 'bg-red-100 text-red-800';
   };
 
-  const getRoleBadge = (role: string) => {
-    switch (role) {
-      case 'admin':
-        return 'bg-purple-100 text-purple-800';
-      case 'worker':
-        return 'bg-blue-100 text-blue-800';
-      default:
-        return 'bg-slate-100 text-slate-800';
-    }
+  const formatAddress = (address?: Customer['address']) => {
+    if (!address) return 'No address';
+    // Handle partial address data
+    const parts = [];
+    if (address.block) parts.push(address.block);
+    if (address.flatNumber) parts.push(address.flatNumber);
+    const streetPart = parts.join(', ');
+    const areaParts = [];
+    if (address.community) areaParts.push(address.community);
+    if (address.city) areaParts.push(address.city);
+    const areaPart = areaParts.join(', ');
+    if (streetPart && areaPart) return `${streetPart} - ${areaPart}`;
+    if (streetPart) return streetPart;
+    if (areaPart) return areaPart;
+    return 'No address';
   };
 
   return (
@@ -73,15 +64,6 @@ export default function CustomersClient({
         <h1 className="text-2xl md:text-3xl font-bold text-[#011c33] tracking-tight">
           Customers Management
         </h1>
-        <div className="w-full md:w-auto">
-          <input
-            type="text"
-            placeholder="Search by name, email, or phone..."
-            className="w-full md:w-80 p-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
       </div>
 
       {/* Desktop Table */}
@@ -92,7 +74,7 @@ export default function CustomersClient({
               <tr className="bg-slate-100 border-b border-slate-200">
                 <th className="p-4 font-semibold text-slate-700 text-sm">Customer</th>
                 <th className="p-4 font-semibold text-slate-700 text-sm">Contact</th>
-                <th className="p-4 font-semibold text-slate-700 text-sm">Role</th>
+                <th className="p-4 font-semibold text-slate-700 text-sm">Address</th>
                 <th className="p-4 font-semibold text-slate-700 text-sm">Status</th>
                 <th className="p-4 font-semibold text-slate-700 text-sm">Joined</th>
               </tr>
@@ -102,7 +84,7 @@ export default function CustomersClient({
                 <tr>
                   <td colSpan={5} className="p-10 text-center text-slate-500">
                     <p className="text-lg font-medium">No customers found</p>
-                    <p className="text-sm">Try adjusting your search criteria</p>
+                    <p className="text-sm">No customers registered yet</p>
                   </td>
                 </tr>
               ) : (
@@ -131,9 +113,10 @@ export default function CustomersClient({
                       </div>
                     </td>
                     <td className="p-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${getRoleBadge(customer.role)}`}>
-                        {customer.role}
-                      </span>
+                      <div className="flex items-center gap-2 text-sm text-slate-600">
+                        <MapPin className="w-4 h-4 flex-shrink-0" />
+                        <span>{formatAddress(customer.address)}</span>
+                      </div>
                     </td>
                     <td className="p-4">
                       <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${getStatusBadge(customer.status)}`}>
@@ -155,23 +138,62 @@ export default function CustomersClient({
         </div>
 
         {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50">
+          <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50 flex-wrap gap-2">
             <p className="text-sm text-slate-600">
-              Page {currentPage} of {totalPages}
+              Showing {(currentPage - 1) * 10 + 1} to {Math.min(currentPage * 10, customers.length)} of {totalPages * 10} customers
             </p>
-            <div className="flex gap-2">
-              <a
-                href={`?${searchQuery ? `search=${searchQuery}&` : ''}page=${currentPage - 1}`}
-                className={`px-3 py-1 text-sm border border-slate-300 rounded hover:bg-slate-100 ${currentPage === 1 ? 'opacity-50 pointer-events-none' : ''}`}
+            <div className="flex gap-1 items-center flex-wrap">
+              <button
+                onClick={() => {
+                  if (currentPage > 1) {
+                    router.push(`/admin/customers?page=${currentPage - 1}`);
+                  }
+                }}
+                disabled={currentPage === 1}
+                className="w-8 h-8 flex items-center justify-center text-sm rounded border border-slate-300 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed text-slate-600"
               >
-                Previous
-              </a>
-              <a
-                href={`?${searchQuery ? `search=${searchQuery}&` : ''}page=${currentPage + 1}`}
-                className={`px-3 py-1 text-sm border border-slate-300 rounded hover:bg-slate-100 ${currentPage === totalPages ? 'opacity-50 pointer-events-none' : ''}`}
+                ←
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(page => {
+                  return page === 1 ||
+                         page === totalPages ||
+                         Math.abs(page - currentPage) <= 1;
+                })
+                .map((page, idx, arr) => {
+                  const prevPage = arr[idx - 1];
+                  const showEllipsis = prevPage && page - prevPage > 1;
+                  return (
+                    <span key={page}>
+                      {showEllipsis && (
+                        <span className="px-2 text-slate-400">...</span>
+                      )}
+                      <button
+                        onClick={() => {
+                          router.push(`/admin/customers?page=${page}`);
+                        }}
+                        className={`w-8 h-8 text-sm rounded transition-colors ${
+                          currentPage === page
+                            ? 'bg-blue-600 text-white font-medium'
+                            : 'border border-slate-300 hover:bg-slate-100 text-slate-600'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    </span>
+                  );
+                })}
+              <button
+                onClick={() => {
+                  if (currentPage < totalPages) {
+                    router.push(`/admin/customers?page=${currentPage + 1}`);
+                  }
+                }}
+                disabled={currentPage === totalPages}
+                className="w-8 h-8 flex items-center justify-center text-sm rounded border border-slate-300 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed text-slate-600"
               >
-                Next
-              </a>
+                →
+              </button>
             </div>
           </div>
         )}
@@ -182,7 +204,7 @@ export default function CustomersClient({
         {customers.length === 0 ? (
           <div className="p-10 text-center text-slate-500 bg-white rounded-xl">
             <p className="text-lg font-medium">No customers found</p>
-            <p className="text-sm">Try adjusting your search criteria</p>
+            <p className="text-sm">No customers registered yet</p>
           </div>
         ) : (
           customers.map((customer) => (
@@ -197,28 +219,29 @@ export default function CustomersClient({
                     <p className="text-xs text-slate-500">{customer.email}</p>
                   </div>
                 </div>
-                <div className="flex flex-col gap-1">
-                  <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${getRoleBadge(customer.role)}`}>
-                    {customer.role}
-                  </span>
-                  <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${getStatusBadge(customer.status)}`}>
-                    {customer.status}
-                  </span>
-                </div>
+                <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${getStatusBadge(customer.status)}`}>
+                  {customer.status}
+                </span>
               </div>
 
-              {customer.phone && (
-                <div className="flex items-center gap-2 text-sm text-slate-600 mb-2">
-                  <Phone className="w-4 h-4" />
-                  {customer.phone}
-                </div>
+              <div className="space-y-2">
+                {customer.phone && (
+                  <div className="flex items-center gap-2 text-sm text-slate-600">
+                    <Phone className="w-4 h-4" />
+                    <span>{customer.phone}</span>
+                  </div>
                 )}
-              <div className="text-xs text-slate-500">
-                Joined: {new Date(customer.createdAt).toLocaleDateString('en-US', {
-                  year: 'numeric',
-                  month: 'short',
-                  day: 'numeric'
-                })}
+                <div className="flex items-center gap-2 text-sm text-slate-600">
+                  <MapPin className="w-4 h-4" />
+                  <span>{formatAddress(customer.address)}</span>
+                </div>
+                <div className="text-xs text-slate-500">
+                  Joined: {new Date(customer.createdAt).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                  })}
+                </div>
               </div>
             </div>
           ))

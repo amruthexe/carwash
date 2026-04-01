@@ -3,6 +3,8 @@ import { connectToDatabase } from "@/lib/db";
 import User from "@/models/User";
 import CustomersClient from "./CustomersClient";
 
+export const dynamic = 'force-dynamic';
+
 export default async function CustomersPage({
   searchParams,
 }: {
@@ -15,8 +17,8 @@ export default async function CustomersPage({
 
   await connectToDatabase();
 
-  // Build query
-  const query: any = {};
+  // Build query - only customers
+  const query: any = { role: 'customer' };
   if (searchParams.search) {
     const searchLower = searchParams.search.toLowerCase();
     query.$or = [
@@ -33,7 +35,7 @@ export default async function CustomersPage({
 
   const [customers, totalCount] = await Promise.all([
     User.find(query)
-      .select('name email phone role status createdAt')
+      .select('name email phone address status createdAt')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
