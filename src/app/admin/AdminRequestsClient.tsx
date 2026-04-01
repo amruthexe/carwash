@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { assignWorkerAction, updateRequestStatusAction } from "./actions";
 
 interface RequestWithPopulated {
@@ -58,6 +58,20 @@ export default function AdminRequestsClient({
   workers
 }: AdminRequestsClientProps) {
   const [searchTerm, setSearchTerm] = useState("");
+  const [activeTab, setActiveTab] = useState<'all' | 'notassigned' | 'inprogress' | 'completed'>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  // Calculate counts for each tab from initial data
+  const tabCounts = useMemo(() => {
+    const counts = {
+      all: initialRequests.length,
+      notassigned: initialRequests.filter(r => r.status === 'pending').length,
+      inprogress: initialRequests.filter(r => ['assigned', 'in_progress'].includes(r.status)).length,
+      completed: initialRequests.filter(r => r.status === 'completed').length,
+    };
+    return counts;
+  }, [initialRequests]);
 
   const assignmentMap = useMemo(() => {
     const map: Record<string, AssignmentWithPopulated> = {};
@@ -69,6 +83,14 @@ export default function AdminRequestsClient({
 
   const filteredRequests = useMemo(() => {
     return initialRequests.filter((req) => {
+      // Apply status filter from tabs
+      if (activeTab !== 'all') {
+        if (activeTab === 'notassigned' && req.status !== 'pending') return false;
+        if (activeTab === 'inprogress' && !['assigned', 'in_progress'].includes(req.status)) return false;
+        if (activeTab === 'completed' && req.status !== 'completed') return false;
+      }
+
+      // Apply search filter
       if (!searchTerm) return true;
       const searchLower = searchTerm.toLowerCase();
       const vehicle = req.vehicleId;
@@ -84,22 +106,64 @@ export default function AdminRequestsClient({
         req.status?.toLowerCase().includes(searchLower)
       );
     });
-  }, [initialRequests, searchTerm, assignmentMap]);
+  }, [initialRequests, searchTerm, assignmentMap, activeTab]);
+
+  const totalPages = Math.ceil(filteredRequests.length / itemsPerPage);
+
+  const paginatedRequests = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredRequests.slice(start, start + itemsPerPage);
+  }, [filteredRequests, currentPage]);
+
+  // Reset to page 1 when search or tab changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, activeTab]);
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <h1 className="text-2xl md:text-3xl font-bold text-[#011c33] tracking-tight">
-          Service Requests Dashboard
-        </h1>
-        <div className="w-full md:w-auto">
-          <input
-            type="text"
-            placeholder="Search by customer, vehicle, worker, or status..."
-            className="w-full md:w-80 p-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <h1 className="text-2xl md:text-3xl font-bold text-[#011c33] tracking-tight">
+            Service Requests Dashboard
+          </h1>
+          <div className="w-full md:w-auto">
+            <input
+              type="text"
+              placeholder="Search by customer, vehicle, worker, or status..."
+              className="w-full md:w-80 p-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* Status Filter Tabs */}
+        <div className="flex gap-2 flex-wrap">
+          {(['all', 'notassigned', 'inprogress', 'completed'] as const).map((tab) => {
+            const count = tabCounts[tab];
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2 ${
+                  activeTab === tab
+                    ? 'bg-blue-600 text-white shadow'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                {tab === 'all' ? 'All Requests' :
+                 tab === 'notassigned' ? 'Not Assigned' :
+                 tab === 'inprogress' ? 'In Progress' :
+                 'Completed'}
+                <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                  activeTab === tab ? 'bg-blue-700 text-white' : 'bg-slate-200 text-slate-700'
+                }`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -118,7 +182,7 @@ export default function AdminRequestsClient({
               </tr>
             </thead>
             <tbody>
-              {filteredRequests.map((req: RequestWithPopulated) => {
+              {paginatedRequests.map((req: RequestWithPopulated) => {
                 const vehicle = req.vehicleId;
                 const customer = vehicle?.userId;
                 const activeAssignment = assignmentMap[req._id];
@@ -257,17 +321,70 @@ export default function AdminRequestsClient({
           </table>
         </div>
 
-        {filteredRequests.length === 0 && (
+        {filteredRequests.length === 0 ? (
           <div className="p-10 text-center text-slate-500">
             <p className="text-lg font-medium">No requests found</p>
             <p className="text-sm">Try adjusting your search criteria</p>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50 flex-wrap gap-2">
+            <p className="text-sm text-slate-600">
+              Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredRequests.length)} of {filteredRequests.length} requests
+            </p>
+            <div className="flex gap-1 items-center flex-wrap">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="w-8 h-8 flex items-center justify-center text-sm rounded border border-slate-300 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed text-slate-600"
+              >
+                ←
+              </button>
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(page => {
+                  // Show first, last, current, and adjacent pages
+                  return page === 1 ||
+                         page === totalPages ||
+                         Math.abs(page - currentPage) <= 1;
+                })
+                .map((page, idx, arr) => {
+                  const prevPage = arr[idx - 1];
+                  const showEllipsis = prevPage && page - prevPage > 1;
+
+                  return (
+                    <span key={page}>
+                      {showEllipsis && (
+                        <span className="px-2 text-slate-400">...</span>
+                      )}
+                      <button
+                        onClick={() => setCurrentPage(page)}
+                        className={`w-8 h-8 text-sm rounded transition-colors ${
+                          currentPage === page
+                            ? 'bg-blue-600 text-white font-medium'
+                            : 'border border-slate-300 hover:bg-slate-100 text-slate-600'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    </span>
+                  );
+                })}
+
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="w-8 h-8 flex items-center justify-center text-sm rounded border border-slate-300 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed text-slate-600"
+              >
+                →
+              </button>
+            </div>
           </div>
         )}
       </div>
 
       {/* Mobile Card View */}
       <div className="md:hidden space-y-4">
-        {filteredRequests.map((req: RequestWithPopulated) => {
+        {paginatedRequests.map((req: RequestWithPopulated) => {
           const vehicle = req.vehicleId;
           const customer = vehicle?.userId;
           const activeAssignment = assignmentMap[req._id];
@@ -392,10 +509,62 @@ export default function AdminRequestsClient({
           );
         })}
 
-        {filteredRequests.length === 0 && (
+        {filteredRequests.length === 0 ? (
           <div className="p-10 text-center text-slate-500 bg-white rounded-xl">
             <p className="text-lg font-medium">No requests found</p>
             <p className="text-sm">Try adjusting your search criteria</p>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50 flex-wrap gap-2">
+            <p className="text-sm text-slate-600">
+              Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredRequests.length)} of {filteredRequests.length} requests
+            </p>
+            <div className="flex gap-1 items-center flex-wrap">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="w-8 h-8 flex items-center justify-center text-sm rounded border border-slate-300 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed text-slate-600"
+              >
+                ←
+              </button>
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(page => {
+                  return page === 1 ||
+                         page === totalPages ||
+                         Math.abs(page - currentPage) <= 1;
+                })
+                .map((page, idx, arr) => {
+                  const prevPage = arr[idx - 1];
+                  const showEllipsis = prevPage && page - prevPage > 1;
+
+                  return (
+                    <span key={page}>
+                      {showEllipsis && (
+                        <span className="px-2 text-slate-400">...</span>
+                      )}
+                      <button
+                        onClick={() => setCurrentPage(page)}
+                        className={`w-8 h-8 text-sm rounded transition-colors ${
+                          currentPage === page
+                            ? 'bg-blue-600 text-white font-medium'
+                            : 'border border-slate-300 hover:bg-slate-100 text-slate-600'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    </span>
+                  );
+                })}
+
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="w-8 h-8 flex items-center justify-center text-sm rounded border border-slate-300 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed text-slate-600"
+              >
+                →
+              </button>
+            </div>
           </div>
         )}
       </div>

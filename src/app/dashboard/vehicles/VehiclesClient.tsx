@@ -18,13 +18,6 @@ interface VehiclesClientProps {
 
 export default function VehiclesClient({ initialVehicles }: VehiclesClientProps) {
   const [showAddForm, setShowAddForm] = useState(false);
-  const [vehicles, setVehicles] = useState(initialVehicles);
-
-  const handleRemove = () => {
-    // Refresh the list after removal (form action will trigger server update)
-    // In a real app, you might want to use revalidation or optimistic updates
-    window.location.reload();
-  };
 
   return (
     <div className="max-w-4xl mx-auto pb-24 space-y-8">
@@ -47,9 +40,9 @@ export default function VehiclesClient({ initialVehicles }: VehiclesClientProps)
       </div>
 
       {/* Vehicles List */}
-      {vehicles.length > 0 ? (
+      {initialVehicles.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {vehicles.map((v) => (
+          {initialVehicles.map((v) => (
             <div key={v._id.toString()} className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
               <div className="flex items-center gap-4 mb-4">
                 <div className="bg-blue-50 p-3 rounded-full">
@@ -63,7 +56,7 @@ export default function VehiclesClient({ initialVehicles }: VehiclesClientProps)
                 </div>
               </div>
 
-              <form action={removeVehicle} onSubmit={handleRemove}>
+              <form action={removeVehicle}>
                 <input type="hidden" name="vehicleId" value={v._id.toString()} />
                 <button
                   type="submit"
