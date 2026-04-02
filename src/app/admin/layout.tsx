@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import Link from "next/link";
-import { Users, ClipboardList, Shield } from "lucide-react";
+import { Users, ClipboardList, Shield, UserCircle } from "lucide-react";
 import SignOutButton from "@/components/auth/SignOutButton";
 
 export default async function AdminLayout({
@@ -24,6 +24,9 @@ export default async function AdminLayout({
           </Link>
           <Link href="/admin/workers" className="flex items-center gap-3 w-full p-3 font-medium text-white rounded-lg hover:bg-slate-800 transition-colors">
             <Users className="w-5 h-5 text-gray-400" /> Workers
+          </Link>
+          <Link href="/admin/customers" className="flex items-center gap-3 w-full p-3 font-medium text-white rounded-lg hover:bg-slate-800 transition-colors">
+            <UserCircle className="w-5 h-5 text-gray-400" /> Customers
           </Link>
         </nav>
 
