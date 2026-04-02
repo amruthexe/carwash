@@ -82,7 +82,7 @@ export default function CompleteProfilePage() {
                 type="text"
                 required
                 defaultValue={initialValues.city}
-                placeholder="e.g. Abu Dhabi"
+                placeholder="e.g. Hyderabad"
                 className="w-full p-3 border border-slate-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none text-base"
               />
             </div>
@@ -97,7 +97,7 @@ export default function CompleteProfilePage() {
                 type="text"
                 required
                 defaultValue={initialValues.community}
-                placeholder="e.g. Al Reem Island"
+                placeholder="e.g. Raheja"
                 className="w-full p-3 border border-slate-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none text-base"
               />
             </div>
@@ -119,7 +119,7 @@ export default function CompleteProfilePage() {
 
             <div>
               <label htmlFor="flatNumber" className="block text-sm font-semibold text-slate-700 mb-2">
-                Flat/Villa Number
+                Flat Number
               </label>
               <input
                 id="flatNumber"
