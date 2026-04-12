@@ -72,6 +72,7 @@ export default function Homes() {
               width={900}
               height={600}
               className="object-cover w-full h-full"
+              loading="eager"
             />
           </div>
 
