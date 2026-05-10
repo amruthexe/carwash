@@ -1,17 +1,17 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IPlan extends Document {
-  name: 'monthly' | 'quarterly' | 'yearly' | 'per_service';
+  name: string;
   price: number;
-  totalServices: number;
-  validityDays: number;
+  numberOfServices: number;
+  validity: { period: 'yearly' | 'quarterly' | 'halfyear' | 'month'; days: number }[];
 }
 
 const PlanSchema: Schema = new Schema({
-  name: { type: String, enum: ['monthly', 'quarterly', 'yearly', 'per_service'], required: true },
+  name: { type: String,  required: true },
   price: { type: Number, required: true },
-  totalServices: { type: Number, required: true },
-  validityDays: { type: Number, required: true },
+  numberOfServices: { type: Number, required: true },
+  validity: [{ period: { type: String, enum: ['yearly','quarterly','halfyear','month'], required: true }, days: { type: Number, required: true } }],
 }, { timestamps: true });
 
 export const Plan = mongoose.models.Plan || mongoose.model<IPlan>('Plan', PlanSchema);
