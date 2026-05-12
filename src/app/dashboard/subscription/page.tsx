@@ -1,18 +1,52 @@
-import { auth } from "@/auth";
-import { connectToDatabase } from "@/lib/db";
-import { Subscription } from "@/models/Plan";
-import { CreditCard, CheckCircle, ShieldAlert } from "lucide-react";
-import Link from "next/link";
+'use client';
+import { useEffect, useState } from 'react';
+import { ShieldAlert } from 'lucide-react';
+import { PlanCard } from '@/components/PlanCard';
 
-export default async function SubscriptionPage() {
-  const session = await auth();
-  if (!session?.user?.id) return null;
+interface Plan {
+  _id: string;
+  name: string;
+  price: number;
+  numberOfServices: number;
+  validity: { period: string; days: number }[];
+}
 
-  await connectToDatabase();
+interface SubscriptionDetail {
+  _id: string;
+  plan: Plan;
+  startDate: string;
+  endDate: string;
+  remainingServices: number;
+  status: string;
+}
 
-  const mockPlans = [
-    { name: "winter special", price: 1499, numberOfServices: 4, validity: [{ period: "month", days: 30 }], _id: "661234567890abcd12345678" }
-  ];
+export default function SubscriptionPage() {
+  const [activeTab, setActiveTab] = useState<'all' | 'current'>('all');
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [currentSubs, setCurrentSubs] = useState<SubscriptionDetail[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        if (activeTab === 'all') {
+          const res = await fetch('/api/plans');
+          const json = await res.json();
+          if (json.success) setPlans(json.data);
+        } else {
+          const res = await fetch('/api/plans/current');
+          const json = await res.json();
+          if (json.success) setCurrentSubs(json.data);
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [activeTab]);
 
   return (
     <div className="max-w-4xl mx-auto pb-24 space-y-12">
@@ -20,43 +54,52 @@ export default async function SubscriptionPage() {
         Service Plans
       </h1>
 
-      <div className="bg-white p-8 md:p-12 rounded-3xl shadow-lg border-2 border-[var(--border)]">
-        <h2 className="text-3xl font-bold mb-6 flex items-center gap-3">
-          <ShieldAlert className="w-8 h-8 text-[var(--primary)]" />
-          No Active Subscription
-        </h2>
-        <p className="text-xl text-[var(--muted-foreground)] mb-8">
-          You currently don't have an active unlimited wash plan. You can still pay per wash, or upgrade below!
-        </p>
-
-        <div className="grid md:grid-cols-2 gap-8 mt-6">
-          
-          <div className="bg-[var(--secondary)] p-8 rounded-3xl border border-[var(--border)] shadow flex flex-col justify-between">
-            <div>
-               {mockPlans.map((plan) => (
-                <div key={plan._id} className="bg-[var(--secondary)] p-8 rounded-3xl border border-[var(--border)] shadow flex flex-col justify-between">
-                  <div>
-                    <h3 className="text-3xl font-bold text-[var(--foreground)] mb-2">{plan.name.charAt(0).toUpperCase() + plan.name.slice(1)} Clean</h3>
-                    <p className="text-[var(--primary)] text-4xl font-extrabold my-4">₹{plan.price}<span className="text-xl text-[var(--muted-foreground)] font-normal"> /mo</span></p>
-                    <ul className="text-xl space-y-3 mb-8">
-                      <li className="flex items-center gap-3"><CheckCircle className="text-green-600 w-6 h-6"/> {plan.numberOfServices} Washes</li>
-                      {/* Add more features as needed */}
-                    </ul>
-                  </div>
-                  <button className="w-full py-5 rounded-2xl bg-[var(--foreground)] hover:bg-slate-800 text-white text-2xl font-bold flex items-center gap-3 justify-center">
-                    <CreditCard className="w-6 h-6" /> Mock Pay Now
-                  </button>
-                </div>
-              ))}
-            </div>
-            
-            <button className="w-full py-5 rounded-2xl bg-[var(--foreground)] hover:bg-slate-800 text-white text-2xl font-bold flex items-center gap-3 justify-center">
-               <CreditCard className="w-6 h-6" /> Mock Pay Now
-            </button>
-          </div>
-
-        </div>
+      <div className="flex gap-4 mb-6">
+        <button
+          className={`px-4 py-2 rounded ${activeTab === 'all' ? 'bg-[var(--primary)] text-white' : 'bg-gray-200'}`}
+          onClick={() => setActiveTab('all')}
+        >All Plans</button>
+        <button
+          className={`px-4 py-2 rounded ${activeTab === 'current' ? 'bg-[var(--primary)] text-white' : 'bg-gray-200'}`}
+          onClick={() => setActiveTab('current')}
+        >Current Plans</button>
       </div>
+
+      {loading && <p>Loading...</p>}
+
+      {!loading && activeTab === 'all' && (
+        <div className="grid md:grid-cols-2 gap-8">
+          {plans.map(plan => (
+            <PlanCard key={plan._id} plan={plan} />
+          ))}
+        </div>
+      )}
+
+      {!loading && activeTab === 'current' && (
+        <div className="space-y-6">
+          {currentSubs.length === 0 ? (
+            <div className="bg-white p-8 md:p-12 rounded-3xl shadow-lg border-2 border-[var(--border)]">
+              <h2 className="text-3xl font-bold mb-6 flex items-center gap-3">
+                <ShieldAlert className="w-8 h-8 text-[var(--primary)]" />
+                No Active Subscription
+              </h2>
+              <p className="text-xl text-[var(--muted-foreground)] mb-8">
+                You currently don't have an active plan. Browse All Plans to subscribe.
+              </p>
+            </div>
+          ) : (
+            currentSubs.map(sub => (
+              <div key={sub._id} className="bg-white p-6 rounded-xl border border-[var(--border)] shadow">
+                <h3 className="text-2xl font-bold mb-2">{sub.plan.name}</h3>
+                <p>Subscribed on: {new Date(sub.startDate).toLocaleDateString()}</p>
+                <p>Expires on: {new Date(sub.endDate).toLocaleDateString()}</p>
+                <p>Status: {sub.status}</p>
+                <p>Remaining services: {sub.remainingServices}</p>
+              </div>
+            ))
+          )}
+        </div>
+      )}
     </div>
   );
 }
