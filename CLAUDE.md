@@ -452,3 +452,43 @@ npm run start        # Starts Node.js server (default port 3000)
 ## AGENTS.md Note
 
 This repo includes an `AGENTS.md` file with special instructions for AI agents. Important: **"This is NOT the Next.js you know"** - the project uses Next.js 16 with potentially breaking changes from training data. Read `node_modules/next/dist/docs/` before making Next.js-specific changes.
+
+IMPORTANT:
+Before creating new models, APIs, components, hooks, utilities, or services,
+always check whether similar implementations already exist in the repository
+to avoid duplication and architecture inconsistency.
+
+---
+
+## Subscription Module Architecture
+
+### Existing Models
+
+The project already contains:
+- `Plan` model in `src/models/Plan.ts`
+- Subscription schema inside the same file
+
+Do NOT create duplicate subscription models or duplicate collections.
+
+Use:
+- `Plan` → master plan configuration
+- `Subscription` → customer subscribed plans
+
+---
+
+### Plan Structure
+
+```ts
+const PlanSchema: Schema = new Schema({
+  name: { type: String, required: true },
+  price: { type: Number, required: true },
+  numberOfServices: { type: Number, required: true },
+  validity: [{
+    period: {
+      type: String,
+      enum: ['yearly', 'quarterly', 'halfyear', 'month'],
+      required: true
+    },
+    days: { type: Number, required: true }
+  }],
+}, { timestamps: true });

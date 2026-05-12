@@ -3,6 +3,8 @@ import { connectToDatabase } from "@/lib/db";
 import Vehicle from "@/models/Vehicle";
 import User from "@/models/User";
 import { ServiceRequest } from "@/models/Service";
+import { Subscription } from "@/models/Plan";
+import SubscriptionSelect from "@/components/SubscriptionSelect";
 import { redirect } from "next/navigation";
 import { CheckCircle2, Clock, Info } from "lucide-react";
 
@@ -12,6 +14,7 @@ async function bookWash(formData: FormData) {
   if (!session?.user?.id) return;
 
   const vehicleId = formData.get("vehicleId") as string;
+  const subscriptionId = formData.get("subscriptionId") as string;
   const pickedDateTime = formData.get("scheduledTime") as string;
 
   if (!vehicleId || !pickedDateTime) return;
@@ -36,9 +39,32 @@ async function bookWash(formData: FormData) {
     redirect('/dashboard/book?error=time_taken');
   }
 
+  // Decrement remaining services atomically and retrieve updated subscription
+  const updatedSubscription = await Subscription.findOneAndUpdate(
+    {
+      _id: subscriptionId,
+      userId: session.user.id,
+      remainingServices: { $gt: 0 },
+      status: 'active',
+    },
+    { $inc: { remainingServices: -1 } },
+    { new: true }
+  );
+
+  if (!updatedSubscription) {
+    // Subscription not found or no remaining services
+    redirect('/dashboard/book?error=invalid_subscription');
+  }
+
+  // If remaining services reached zero, mark as expired
+  if (updatedSubscription.remainingServices <= 0) {
+    await Subscription.findByIdAndUpdate(updatedSubscription._id, { status: 'expired' });
+  }
+
   await ServiceRequest.create({
     userId: session.user.id,
     vehicleId,
+    subscriptionId: updatedSubscription._id,
     requestedTime: now,
     scheduledTime: scheduledTime,
     status: 'pending'
@@ -126,6 +152,7 @@ export default async function BookWashPage({ searchParams }: { searchParams: Pro
           </div>
         </div>
 
+        <SubscriptionSelect />
         <hr className="border-slate-200" />
 
         {/* Step 2: Time Selection */}
